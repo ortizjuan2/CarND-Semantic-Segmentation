@@ -4,10 +4,8 @@ import helper
 import warnings
 from distutils.version import LooseVersion
 import project_tests as tests
-#from tqdm import tqdm
 import time
-
-TRAIN_IMGS = 384
+from tqdm import tqdm 
 
 # Check TensorFlow Version
 assert LooseVersion(tf.__version__) >= LooseVersion('1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
@@ -43,7 +41,6 @@ def load_vgg(sess, vgg_path):
     layer4_out = graph.get_tensor_by_name(vgg_layer4_out_tensor_name)
     layer7_out = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
     return image_input, keep_prob, layer3_out, layer4_out, layer7_out
-tests.test_load_vgg(load_vgg, tf)
 
 
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
@@ -82,7 +79,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     #upsampling to (-1, 160, 576, 2)
     output6 = tf.layers.conv2d_transpose(output5, num_classes, (2,2), (2,2), padding='VALID')
     return output6
-tests.test_layers(layers)
+
 
 
 def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
@@ -95,20 +92,11 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
-
-    #flat = tf.reshape(output6, [-1, 2, 160*576])
-    logits = tf.reshape(nn_last_layer, (-1, num_classes))
-    
-    #logits = tf.nn.softmax(flat)
-    cross_entropy_lost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,
-                              labels=correct_label))
-    train_op = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy_lost)
-    return logits, train_op, cross_entropy_lost
-tests.test_optimize(optimize)
+    return None, None, None
 
 
-def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, image_input,
-             correct_label, keep_prob, learning_rate, saver=None):
+def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
+             correct_label, keep_prob, learning_rate):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
@@ -117,37 +105,13 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param get_batches_fn: Function to get batches of training data.  Call using get_batches_fn(batch_size)
     :param train_op: TF Operation to train the neural network
     :param cross_entropy_loss: TF Tensor for the amount of loss
-    :param image_input: TF Placeholder for input images
+    :param input_image: TF Placeholder for input images
     :param correct_label: TF Placeholder for label images
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-
-    iterations = (int(TRAIN_IMGS / batch_size) + 1) * epochs
-    print("Total number of iterations: {}".format(iterations))
-
-    start_t = time.time()
-    for i in range(1,iterations):
-        print('Iteration: {:02d} '.format(i), end="")
-        images = get_batches_fn(batch_size)
-        im, gt = next(images)
-        #run_metadata = tf.RunMetadata()
-        #res = sess.run([train_op, merged], feed_dict={image_input:im, lbls: gt, vgg_keep_prob:0.5}, run_metadata=run_metadata)
-        [trn, loss] = sess.run([train_op, cross_entropy_loss], feed_dict={image_input:im, correct_label: gt, keep_prob:0.5})
-        #tf.summary.FileWriter('./save', sess.graph)
-        print('loss: {:02.4f} '.format(loss), end="")
-        if (i % 50) == 0:
-            print('\tSaving progress.')
-            #run_metadata = tf.RunMetadata()
-            #res = sess.run([merged], run_metadata=run_metadata)
-            #tf.summary.FileWriter('./save', sess.graph)
-            if saver != None:
-                saver.save(sess, './fcn_save/save_net.ckpt')
-        end_t = time.time()
-        print('in {:02.4f} seconds.'.format(end_t - start_t))
-        start_t = end_t
-#tests.test_train_nn(train_nn)
+    pass
 
 
 def run():
@@ -155,38 +119,38 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
-    tests.test_for_kitti_dataset(data_dir)
-
-    # Download pretrained vgg model
-    helper.maybe_download_pretrained_vgg(data_dir)
-
-    # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
-    # You'll need a GPU with at least 10 teraFLOPS to train on.
-    #  https://www.cityscapes-dataset.com/
-
     with tf.Session() as sess:
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
 
-        # Build NN using load_vgg, layers, and optimize function
+        sess = tf.Session()
         [image_input, vgg_keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out] = load_vgg(sess, vgg_path)
-        
-        nn_last_layer = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
 
-        # Train NN using the train_nn function
-        
-        
+        #operations = sess.graph.get_operations()
+        #for op in operations:
+        #    print(op.name)
+       
+        output6 = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
 
+      
+        #flat = tf.reshape(output6, [-1, 2, 160*576])
+        logits = tf.reshape(output6, (-1, num_classes))
         lbls = tf.placeholder(tf.float32, shape=[None, image_shape[0], image_shape[1], num_classes])
-        correct_label = tf.reshape(lbls, (-1, num_classes))
-        [logits, train_op, cross_entropy_loss] = optimize(nn_last_layer, correct_label, 1e-4, num_classes)
+        labels = tf.reshape(lbls, (-1, num_classes))
+        #logits = tf.nn.softmax(flat)
 
+        cross_entropy_lost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,
+                                labels=labels))
+
+        train_op = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy_lost)
+
+        #writer = tf.summary.FileWriter('./save', graph=tf.get_default_graph())
+        #tensorboard --logdir=/logdir
 
 
         saver = tf.train.Saver()
-
         # Check if network has previous parameters saved
         try:
             saver.restore(sess, './fcn_save/save_net.ckpt')
@@ -196,16 +160,45 @@ def run():
             init = tf.global_variables_initializer() 
             sess.run(init)
             pass
+        
+#self.accuracy = tf.cast(self.mse, tf.float32)
 
-        train_nn(sess=sess, epochs=1, batch_size=4, get_batches_fn=get_batches_fn, train_op=train_op,
-                    cross_entropy_loss=cross_entropy_loss, 
-                    image_input=image_input,
-                    correct_label=lbls,
-                    keep_prob=vgg_keep_prob,
-                    learning_rate=1e-4,
-                    saver=saver)
+#tf.scalar_summary('loss', self.mse)
+# self.merged = tf.merge_all_summaries()#
+
+#   self.train_writer = tf.train.SummaryWriter('./conv2/train',sess.graph)
+#        self.test_writer = tf.train.SummaryWriter('./conv2/val')
+#run_metadata = tf.RunMetadata()
+#                summary, _, train_accuracy = sess.run([self.merged, self.train_step, self.accuracy], \
+#                                                feed_dict={self.x: images, self.y_: angles, self.keep_prob: 0.5}, \
+#                                                    run_metadata=run_metadata)
 
 
+        #tf.summary.scalar('loss', cross_entropy_lost)
+        #merged = tf.summary.merge_all()
+
+
+        #start_t = time.time() 
+        for _ in tqdm(range(100), desc='Iteration'):
+            #print('Iteration: {:02d} '.format(_+1), end="")
+            images = get_batches_fn(4)
+            im, gt = next(images)
+            #run_metadata = tf.RunMetadata()
+            #res = sess.run([train_op, merged], feed_dict={image_input:im, lbls: gt, vgg_keep_prob:0.5}, run_metadata=run_metadata)
+            res = sess.run([train_op], feed_dict={image_input:im, lbls: gt, vgg_keep_prob:0.5})
+            #tf.summary.FileWriter('./save', sess.graph)
+            if (_ % 10) == 0:
+                #print('\tSaving progress.')
+                #run_metadata = tf.RunMetadata()
+                #res = sess.run([merged], run_metadata=run_metadata)
+                #tf.summary.FileWriter('./save', sess.graph)
+                saver.save(sess, './fcn_save/save_net.ckpt')
+            #end_t = time.time()
+            #print('in {:02.4f} seconds.'.format(end_t - start_t))
+            #start_t = end_t
+ 
+
+        # TODO: Train NN using the train_nn function
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
